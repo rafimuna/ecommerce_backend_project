@@ -9,7 +9,7 @@ class Category(models.Model):
         return self.name
 
 
-# ✅ 2. Product Model (Cart, Order এইটা use করে, তাই আগে দিতে হবে)
+# ✅ 2. Product Model
 class Product(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
@@ -54,7 +54,32 @@ class OrderItem(models.Model):
         return f"{self.order.id} - {self.product.title}"
 
 
-# ✅ 6. Payout Request Model
+# ✅ 6. Payment Model
+class Payment(models.Model):
+    PAYMENT_METHOD_CHOICES = [
+        ('cod', 'Cash on Delivery'),
+        ('sslcommerz', 'SSLCommerz'),
+        ('stripe', 'Stripe'),
+        ('paypal', 'PayPal'),
+    ]
+
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('success', 'Success'),
+        ('failed', 'Failed'),
+    ]
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
+    method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    transaction_id = models.CharField(max_length=100, null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Payment for Order #{self.order.id} - {self.status}"
+
+
+# ✅ 7. Payout Request Model
 class PayoutRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
