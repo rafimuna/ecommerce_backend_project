@@ -88,6 +88,10 @@ DATABASES = {
 }
 
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:9000",  # Quasar frontend port
+]
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
