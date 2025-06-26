@@ -1,3 +1,4 @@
+# views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -5,12 +6,14 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
-from rest_framework.serializers import ModelSerializer, CharField, ValidationError
+from rest_framework.serializers import ModelSerializer, CharField, EmailField, ValidationError
+
 
 # ✅ Custom Register Serializer
 class RegisterSerializer(ModelSerializer):
     password = CharField(write_only=True)
     password2 = CharField(write_only=True)
+    email = EmailField(required=True)
 
     class Meta:
         model = User
@@ -19,12 +22,13 @@ class RegisterSerializer(ModelSerializer):
     def validate(self, data):
         if data['password'] != data['password2']:
             raise ValidationError("Passwords do not match.")
+        if User.objects.filter(email=data['email']).exists():
+            raise ValidationError("Email is already in use.")
         return data
 
     def create(self, validated_data):
         validated_data.pop('password2')
-        user = User.objects.create_user(**validated_data)
-        return user
+        return User.objects.create_user(**validated_data)
 
 
 # ✅ Register API
@@ -44,18 +48,23 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ✅ Login API
+# ✅ Login API (uses email instead of username)
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data.get('username')
+        email = request.data.get('email')
         password = request.data.get('password')
 
-        if not username or not password:
-            return Response({'error': 'Username and password are required.'}, status=400)
+        if not email or not password:
+            return Response({'error': 'Email and password are required.'}, status=400)
 
-        user = authenticate(username=username, password=password)
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'Invalid email or password.'}, status=401)
+
+        user = authenticate(username=user.username, password=password)
 
         if user is not None:
             refresh = RefreshToken.for_user(user)
@@ -63,6 +72,10 @@ class LoginView(APIView):
                 'message': 'Login successful',
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
+                'user': {
+                    'username': user.username,
+                    'email': user.email,
+                }
             })
         else:
-            return Response({'error': 'Invalid credentials'}, status=401)
+            return Response({'error': 'Invalid email or password.'}, status=401)
